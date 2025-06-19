@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: custom-workflow-
+spec:
+  entrypoint: create-team
+  # arguments:
+  #   parameters:
+  #     - name: message
+  #       value: hello world
+  templates:
+    - name: fake-template
+      inputs:
+        parameters:
+          - name: message
+      container:
+        image: alpine:3.7
+        command: [echo, "{{inputs.parameters.message}}"]
+    - name: fail
+      retryStrategy:
+        limit: 3
+        retryPolicy: "Always"
+        # backoff:
+        #   duration: "5"
+        #   factor: 2
+      script:
+        image: alpine:3.7
+        command: [sh]
+        source: |
+          echo 'break pipeline'
+          exit 1
+    - name: create-team
+      dag:
+        tasks:
+        - name: github-team
+          template: fake-template
+          arguments:
+            parameters:
+              - name: message
+                value: Create GitHub team
+        - name: keycloak-team
+          template: fake-template
+          arguments:
+            parameters:
+              - name: message
+                value: Create keycloak team
+        - name: artifactory-team
+          template: fake-template
+          arguments:
+            parameters:
+              - name: message
+                value: Create artifactory team
+        - name: sonar-team
+          template: fake-template
+          arguments:
+            parameters:
+              - name: message
+                value: Create artifactory team
+        - name: notify-success
+          template: fake-template
+          dependencies:
+            - github-team
+            - keycloak-team
+            - artifactory-team
+            - sonar-team
+            - fail
+          arguments:
+            parameters:
+              - name: message
+                value: The team has been created
+        - name: fail
+          template: fail
